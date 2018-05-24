@@ -20,7 +20,7 @@ func PkPutMsg(ctx context.Context, dst blobserver.StatReceiver, msg *rmime.Messa
 	return pkPut(ctx, dst, (*rmime.Part)(msg), "mime-message")
 }
 
-// PkPutMsg adds a message part to the Perkeep server at dst. The
+// PkPutPart adds a message part to the Perkeep server at dst. The
 // message part is added as a hierarchy of blobs with the root blob a
 // schema blob having camliType "mime-part".
 //
