@@ -7,29 +7,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bobg/folder"
-	"github.com/bobg/folder/maildir"
-	"github.com/bobg/folder/mbox"
-	"github.com/bobg/pkmail"
+	"github.com/bobg/folder/v2"
+	"github.com/bobg/folder/v2/maildir"
+	"github.com/bobg/folder/v2/mbox"
 	"github.com/bobg/rmime"
 	"github.com/bobg/uncompress"
 	"perkeep.org/pkg/blob"
 	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/schema"
+
+	"github.com/bobg/pkmail"
 )
 
 func main() {
-	ctx := context.Background()
-
-	server := flag.String("server", "localhost:3179", "perkeep server address")
-	// xxx osutil.AddSecretRingFlag() // xxx it is messed up that this is needed
-
+	clientpkg.AddFlags() // add -server flag
 	flag.Parse()
 
-	client, err := clientpkg.New(clientpkg.OptionServer(*server))
+	client, err := clientpkg.New()
 	if err != nil {
-		log.Fatal("creating perkeep client: %s", err)
+		log.Fatalf("creating perkeep client: %s", err)
 	}
+
+	ctx := context.Background()
 
 	foldersPermanode, err := permanodeRef(ctx, client, "pkmail-folders")
 	if err != nil {
@@ -57,7 +56,7 @@ func main() {
 			continue
 		}
 		for i := 1; ; i++ {
-			msgR, closer, err := f.Message()
+			msgR, err := f.Message()
 			if err != nil {
 				log.Fatalf("opening message %d in %s: %s", i, arg, err)
 			}
@@ -68,7 +67,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("reading message %d in %s: %s", i, arg, err)
 			}
-			err = closer()
+			err = msgR.Close()
 			if err != nil {
 				log.Fatalf("closing message %d in %s: %s", i, arg, err)
 			}
