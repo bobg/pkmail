@@ -1,3 +1,4 @@
+// Package pkmail implements a schema for storing parsed e-mail messages in Perkeep.
 package pkmail
 
 import (
@@ -74,7 +75,7 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 
 	case "message":
 		switch p.MinorType() {
-		case "rfc822":
+		case "rfc822", "news":
 			submsg := p.B.(*rmime.Message)
 			bodyRef, err := PkPutMsg(ctx, dst, submsg)
 			if err != nil {

@@ -1,3 +1,10 @@
+// Command pkmail reads folder names from the command line,
+// parses their messages,
+// and adds them to a Perkeep server.
+//
+// Each message added is made a "camliMember" of the "pkmail-messages" permanode.
+// It is also made a "camliMember" of a permanode named for the folder it came from.
+// Each folder permanode in turn is made a "camliMember" of "pkmail-folders".
 package main
 
 import (
@@ -7,11 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bobg/folder/v2"
-	"github.com/bobg/folder/v2/maildir"
-	"github.com/bobg/folder/v2/mbox"
+	"github.com/bobg/folder/v3"
 	"github.com/bobg/rmime"
-	"github.com/bobg/uncompress"
 	"perkeep.org/pkg/blob"
 	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/schema"
@@ -40,7 +44,7 @@ func main() {
 	}
 
 	for _, arg := range flag.Args() {
-		f, err := getFolder(arg)
+		f, err := folder.Open(arg)
 		if err != nil {
 			log.Printf("processing %s: %s", arg, err)
 			continue
@@ -86,18 +90,6 @@ func main() {
 			}
 		}
 	}
-}
-
-func getFolder(name string) (folder.Folder, error) {
-	f, err := maildir.New(name)
-	if err == nil {
-		return f, nil
-	}
-	r, err := uncompress.OpenFile(name)
-	if err != nil {
-		return nil, err
-	}
-	return mbox.New(r)
 }
 
 func permanodeRef(ctx context.Context, client *clientpkg.Client, key string) (blob.Ref, error) {
