@@ -2,14 +2,15 @@
 package pkmail
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"strings"
 
 	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/blobserver"
-	"perkeep.org/pkg/schema"
 )
 
 // PkPutMsg adds a message to the Perkeep server at dst. The message
@@ -20,11 +21,12 @@ func PkPutMsg(ctx context.Context, dst blobserver.StatReceiver, msg *rmime.Messa
 	return pkPut(ctx, dst, (*rmime.Part)(msg), "mime-message")
 }
 
-// PkPutPart adds a message part to the Perkeep server at dst. The
-// message part is added as a hierarchy of blobs with the root blob a
+// PkPutPart adds a message part to the Perkeep server at dst.
+// The message part is added as a hierarchy of blobs with the root blob a
 // schema blob having camliType "mime-part".
 //
 // Other fields of the root schema blob:
+//   pkmail_version: semver string for the pkmail schema version in use
 //   content_type: canonicalized content-type of the part
 //   content_disposition: canonicalized content-disposition token ("inline" or "attachment")
 //
@@ -53,7 +55,8 @@ func PkPutPart(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part) 
 //   - text/html parts get parsed into DOMs (?)
 func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Ref, error) {
 	cd, cdParams := p.Disposition()
-	m := &partMap{
+	s := &schema{
+		PkmailVersion:            SchemaVersion,
 		CamliType:                camType,
 		ContentType:              p.Type(),
 		ContentDisposition:       cd,
@@ -66,7 +69,7 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 		Recipients:               p.Recipients(),
 	}
 	if p.MajorType() == "text" {
-		m.Charset = p.Charset()
+		s.Charset = p.Charset()
 	}
 
 	switch p.MajorType() {
@@ -80,7 +83,7 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 			}
 			subpartRefs = append(subpartRefs, subpartRef)
 		}
-		m.Subparts = subpartRefs
+		s.Subparts = subpartRefs
 		// TODO: preamble and postamble?
 
 	case "message":
@@ -91,10 +94,10 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 			if err != nil {
 				return blob.Ref{}, err
 			}
-			m.SubMessage = &bodyRef
+			s.SubMessage = &bodyRef
 
 		case "delivery-status":
-			m.DeliveryStatus = p.B.(*rmime.DeliveryStatus)
+			s.DeliveryStatus = p.B.(*rmime.DeliveryStatus)
 
 		default:
 			return blob.Ref{}, rmime.ErrUnimplemented
@@ -105,16 +108,19 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 		if err != nil {
 			return blob.Ref{}, err
 		}
-		builder := schema.NewBuilder()
-		builder.SetType("bytes")
-		bodyRef, err := schema.WriteFileMap(ctx, dst, builder, bodyR)
+		bodyBytes, err := ioutil.ReadAll(bodyR)
 		if err != nil {
 			return blob.Ref{}, err
 		}
-		m.Body = &bodyRef
+		bodyRef := blob.RefFromBytes(bodyBytes)
+		_, err = blobserver.ReceiveNoHash(ctx, dst, bodyRef, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return blob.Ref{}, err
+		}
+		s.Body = &bodyRef
 	}
 
-	jBytes, err := json.MarshalIndent(m, "", " ")
+	jBytes, err := json.MarshalIndent(s, "", " ")
 	if err != nil {
 		return blob.Ref{}, err
 	}
