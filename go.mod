@@ -4,9 +4,8 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.40.0 // indirect
-	github.com/bobg/folder/v3 v3.0.3
+	github.com/bobg/folder/v3 v3.0.4
 	github.com/bobg/rmime v1.0.2
-	github.com/bobg/uncompress v1.0.0 // indirect
 	github.com/bradfitz/latlong v0.0.0-20170410180902-f3db6d0dff40 // indirect
 	github.com/cznic/fileutil v0.0.0-20181122101858-4d67cfea8c87 // indirect
 	github.com/cznic/internal v0.0.0-20181122101858-3279554c546e // indirect

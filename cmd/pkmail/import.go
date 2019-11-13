@@ -30,36 +30,43 @@ func doImport(args []string) {
 	}
 
 	for _, arg := range args {
-		f, err := folder.Open(arg)
+		doImportFolder(ctx, foldersPermanode, messagesPermanode, arg)
+	}
+}
+
+func doImportFolder(ctx context.Context, foldersPermanode, messagesPermanode blob.Ref, arg string) {
+	f, err := folder.Open(arg)
+	if err != nil {
+		log.Printf("processing %s: %s", arg, err)
+		return
+	}
+	defer f.Close()
+
+	folderPermanode, err := permanodeRef(ctx, client, arg)
+	if err != nil {
+		log.Fatalf("getting/creating permanode for folder %s: %s", arg, err)
+	}
+
+	err = addMember(ctx, client, foldersPermanode, folderPermanode)
+	if err != nil {
+		log.Fatalf("adding permanode for folder %s to pkmail-folders: %s", arg, err)
+	}
+
+	log.Printf("processing %s", arg)
+
+	for i := 1; ; i++ {
+		msgR, err := f.Message()
 		if err != nil {
-			log.Printf("processing %s: %s", arg, err)
+			log.Printf("opening message %d in %s: %s", i, arg, err)
 			continue
 		}
-		folderPermanode, err := permanodeRef(ctx, client, arg)
-		if err != nil {
-			log.Printf("getting/creating permanode for folder %s: %s", arg, err)
-			continue
+		if msgR == nil {
+			break
 		}
-		err = addMember(ctx, client, foldersPermanode, folderPermanode)
+		err = addMessage(ctx, client, i, msgR, folderPermanode, messagesPermanode)
 		if err != nil {
-			log.Printf("adding permanode for folder %s to pkmail-folders: %s", arg, err)
+			log.Printf("adding message %d in %s: %s", i, arg, err)
 			continue
-		}
-		log.Printf("processing %s", arg)
-		for i := 1; ; i++ {
-			msgR, err := f.Message()
-			if err != nil {
-				log.Printf("opening message %d in %s: %s", i, arg, err)
-				continue
-			}
-			if msgR == nil {
-				break
-			}
-			err = addMessage(ctx, client, i, msgR, folderPermanode, messagesPermanode)
-			if err != nil {
-				log.Printf("adding message %d in %s: %s", i, arg, err)
-				continue
-			}
 		}
 	}
 }
