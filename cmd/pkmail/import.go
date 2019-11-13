@@ -11,6 +11,7 @@ import (
 	"github.com/bobg/rmime"
 	"github.com/pkg/errors"
 	"perkeep.org/pkg/blob"
+	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/schema"
 
 	"github.com/bobg/pkmail"
