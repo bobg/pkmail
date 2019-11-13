@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
@@ -63,10 +64,12 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 		Header:                   p.Fields,
 		ContentTypeParams:        p.Params(),
 		ContentDispositionParams: cdParams,
-		Time:                     p.Time(),
 		Subject:                  p.Subject(),
 		Sender:                   p.Sender(),
 		Recipients:               p.Recipients(),
+	}
+	if t := p.Time(); t != (time.Time{}) {
+		s.Time = t
 	}
 	if p.MajorType() == "text" {
 		s.Charset = p.Charset()

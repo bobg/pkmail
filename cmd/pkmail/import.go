@@ -84,8 +84,11 @@ func addMessage(ctx context.Context, client *clientpkg.Client, i int, r io.ReadC
 }
 
 func permanodeRef(ctx context.Context, client *clientpkg.Client, key string) (blob.Ref, error) {
-	builder := schema.NewPlannedPermanode(key)
-	return signAndUpload(ctx, client, builder)
+	result, err := client.UploadPlannedPermanode(ctx, key, time.Now())
+	if err != nil {
+		return blob.Ref{}, err
+	}
+	return result.BlobRef, nil
 }
 
 func addMember(ctx context.Context, client *clientpkg.Client, dst, src blob.Ref) error {
