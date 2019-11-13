@@ -12,17 +12,19 @@ import (
 	"perkeep.org/pkg/schema"
 )
 
+// PkGetMsg fetches the blobs rooted at ref to reconstruct an rmime.Message.
 func PkGetMsg(ctx context.Context, src blob.Fetcher, ref blob.Ref) (*rmime.Message, error) {
-	part, err := pkGetPart(ctx, src, ref, "text/plain")
+	part, err := pkGetPart(ctx, src, ref, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting message-root part")
 	}
 	return (*rmime.Message)(part), nil
 }
 
+// ErrMalformed is the error produced when a blob does not conform to the pkmail schema.
 var ErrMalformed = errors.New("malformed part")
 
-func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultType string) (*rmime.Part, error) {
+func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, expectMsg bool) (*rmime.Part, error) {
 	blobR, _, err := src.Fetch(ctx, ref)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetching message-part blob")
@@ -35,11 +37,22 @@ func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultType 
 		return nil, errors.Wrap(err, "parsing message-root blob")
 	}
 
+	if expectMsg && m.CamliType != "mime-message" {
+		return nil, ErrMalformed
+	}
+	if !expectMsg && m.CamliType != "mime-part" {
+		return nil, ErrMalformed
+	}
+
 	part := &rmime.Part{
 		Header: &rmime.Header{
-			Fields:      m.Header,
-			DefaultType: defaultType,
+			Fields: m.Header,
 		},
+	}
+	if expectMsg {
+		part.Header.DefaultType = "message/rfc822"
+	} else {
+		part.Header.DefaultType = "text/plain"
 	}
 
 	ctParts := strings.Split(m.ContentType, "/")
@@ -50,15 +63,9 @@ func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultType 
 
 	switch major {
 	case "multipart":
-		if minor == "digest" {
-			defaultType = "message/rfc822"
-		} else {
-			defaultType = "text/plain"
-		}
-
 		multi := new(rmime.Multipart)
 		for _, subpartRef := range m.Subparts {
-			part, err := pkGetPart(ctx, src, subpartRef, defaultType)
+			part, err := pkGetPart(ctx, src, subpartRef, minor == "digest")
 			if err != nil {
 				return nil, errors.Wrap(err, "getting multipart subpart")
 			}
@@ -69,7 +76,7 @@ func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultType 
 	case "message":
 		switch minor {
 		case "rfc822", "news":
-			msg, err := pkGetPart(ctx, src, *m.SubMessage, "text/plain")
+			msg, err := pkGetPart(ctx, src, *m.SubMessage, false)
 			if err != nil {
 				return nil, errors.Wrap(err, "getting nested message")
 			}
