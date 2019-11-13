@@ -10,12 +10,14 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/bobg/folder/v3"
 	"github.com/bobg/rmime"
+	"github.com/pkg/errors"
 	"perkeep.org/pkg/blob"
 	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/schema"
@@ -24,12 +26,17 @@ import (
 )
 
 func main() {
+	doGet := flag.Bool("get", false, "interpret command-line arg as a blob ref to a MIME message xxx")
 	clientpkg.AddFlags() // add -server flag
 	flag.Parse()
 
 	client, err := clientpkg.New()
 	if err != nil {
 		log.Fatalf("creating perkeep client: %s", err)
+	}
+
+	if *doGet {
+		doget(client)
 	}
 
 	ctx := context.Background()
@@ -59,37 +66,42 @@ func main() {
 			log.Printf("adding permanode for folder %s to pkmail-folders: %s", arg, err)
 			continue
 		}
+		log.Printf("processing %s", arg)
 		for i := 1; ; i++ {
 			msgR, err := f.Message()
 			if err != nil {
-				log.Fatalf("opening message %d in %s: %s", i, arg, err)
+				log.Printf("opening message %d in %s: %s", i, arg, err)
+				continue
 			}
 			if msgR == nil {
 				break
 			}
-			msg, err := rmime.ReadMessage(msgR)
+			err = addMessage(ctx, client, i, msgR, folderPermanode, messagesPermanode)
 			if err != nil {
-				log.Fatalf("reading message %d in %s: %s", i, arg, err)
-			}
-			err = msgR.Close()
-			if err != nil {
-				log.Fatalf("closing message %d in %s: %s", i, arg, err)
-			}
-			ref, err := pkmail.PkPutMsg(ctx, client, msg)
-			if err != nil {
-				log.Fatalf("adding message %d from %s: %s", i, arg, err)
-			}
-			log.Printf("message %d in %s added as %s", i, arg, ref)
-			err = addMember(ctx, client, folderPermanode, ref)
-			if err != nil {
-				log.Fatalf("adding message %d from %s to folder permanode: %s", i, arg, err)
-			}
-			err = addMember(ctx, client, messagesPermanode, ref)
-			if err != nil {
-				log.Fatalf("adding message %d from %s to pkmail-messages: %s", i, arg, err)
+				log.Printf("adding message %d in %s: %s", i, arg, err)
+				continue
 			}
 		}
 	}
+}
+
+func addMessage(ctx context.Context, client *clientpkg.Client, i int, r io.ReadCloser, folderPermanode, messagesPermanode blob.Ref) error {
+	defer r.Close()
+	msg, err := rmime.ReadMessage(r)
+	if err != nil {
+		return errors.Wrap(err, "reading message")
+	}
+	ref, err := pkmail.PkPutMsg(ctx, client, msg)
+	if err != nil {
+		return errors.Wrap(err, "storing message")
+	}
+	log.Printf("message %d added as %s", i, ref)
+	err = addMember(ctx, client, folderPermanode, ref)
+	if err != nil {
+		return errors.Wrap(err, "adding message to folder permanode")
+	}
+	err = addMember(ctx, client, messagesPermanode, ref)
+	return errors.Wrap(err, "adding message to pkmail-messages permanode")
 }
 
 func permanodeRef(ctx context.Context, client *clientpkg.Client, key string) (blob.Ref, error) {

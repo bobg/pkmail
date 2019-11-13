@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
-	"time"
 
 	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
@@ -53,10 +52,22 @@ func PkPutPart(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part) 
 //   - text/* parts get inverted index
 //   - text/html parts get parsed into DOMs (?)
 func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Ref, error) {
-	var (
-		bodyName string
-		body     interface{}
-	)
+	cd, cdParams := p.Disposition()
+	m := &partMap{
+		CamliType:                camType,
+		ContentType:              p.Type(),
+		ContentDisposition:       cd,
+		Header:                   p.Fields,
+		ContentTypeParams:        p.Params(),
+		ContentDispositionParams: cdParams,
+		Time:                     p.Time(),
+		Subject:                  p.Subject(),
+		Sender:                   p.Sender(),
+		Recipients:               p.Recipients(),
+	}
+	if p.MajorType() == "text" {
+		m.Charset = p.Charset()
+	}
 
 	switch p.MajorType() {
 	case "multipart":
@@ -69,8 +80,7 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 			}
 			subpartRefs = append(subpartRefs, subpartRef)
 		}
-		bodyName = "subparts"
-		body = subpartRefs
+		m.Subparts = subpartRefs
 		// TODO: preamble and postamble?
 
 	case "message":
@@ -81,12 +91,10 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 			if err != nil {
 				return blob.Ref{}, err
 			}
-			bodyName = "submessage"
-			body = bodyRef
+			m.SubMessage = &bodyRef
 
 		case "delivery-status":
-			bodyName = "delivery-status"
-			body = p.B.(*rmime.DeliveryStatus)
+			m.DeliveryStatus = p.B.(*rmime.DeliveryStatus)
 
 		default:
 			return blob.Ref{}, rmime.ErrUnimplemented
@@ -103,40 +111,7 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 		if err != nil {
 			return blob.Ref{}, err
 		}
-		bodyName = "body"
-		body = bodyRef
-	}
-
-	cd, cdParams := p.Disposition()
-	m := map[string]interface{}{
-		"camliType":           camType,
-		"content_type":        p.Type(),
-		"content_disposition": cd,
-		bodyName:              body,
-	}
-	if len(p.Fields) > 0 {
-		m["header"] = p.Fields
-	}
-	if params := p.Params(); len(params) > 0 {
-		m["content_type_params"] = params
-	}
-	if len(cdParams) > 0 {
-		m["content_disposition_params"] = cdParams
-	}
-	if t := p.Time(); t != (time.Time{}) {
-		m["time"] = t
-	}
-	if p.MajorType() == "text" {
-		m["charset"] = p.Charset()
-	}
-	if subj := p.Subject(); subj != "" {
-		m["subject"] = subj
-	}
-	if sender := p.Sender(); sender != nil {
-		m["sender"] = sender
-	}
-	if recipients := p.Recipients(); len(recipients) > 0 {
-		m["recipients"] = recipients
+		m.Body = &bodyRef
 	}
 
 	jBytes, err := json.MarshalIndent(m, "", " ")
