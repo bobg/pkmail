@@ -9,7 +9,7 @@ import (
 )
 
 // SchemaVersion is the schema version as a semver string.
-const SchemaVersion = "1.0.0"
+const SchemaVersion = "1.0.1"
 
 type schemaBase struct {
 	// PkmailVersion holds the value of pkmail.SchemaVersion at the time this blob was written.
@@ -22,7 +22,7 @@ type schemaBase struct {
 	Header                   []*rmime.Field    `json:"header,omitempty"`
 	ContentTypeParams        map[string]string `json:"content_type_params,omitempty"`
 	ContentDispositionParams map[string]string `json:"content_disposition_params,omitempty"`
-	Time                     time.Time         `json:"time,omitempty"`
+	Time                     *time.Time        `json:"time,omitempty"`
 	Charset                  string            `json:"charset,omitempty"`
 	Subject                  string            `json:"subject,omitempty"`
 	Sender                   *rmime.Address    `json:"sender,omitempty"`

@@ -24,9 +24,16 @@ func doImport(args []string) {
 	if err != nil {
 		log.Fatalf("getting/creating pkmail-folders permanode: %s", err)
 	}
+	if *verbose {
+		log.Printf("pkmail-folders permanode is %s", foldersPermanode)
+	}
+
 	messagesPermanode, err := permanodeRef(ctx, client, "pkmail-messages")
 	if err != nil {
 		log.Fatalf("getting/creating pkmail-messages permanode: %s", err)
+	}
+	if *verbose {
+		log.Printf("pkmail-messages permanode is %s", messagesPermanode)
 	}
 
 	for _, arg := range args {
@@ -91,7 +98,7 @@ func addMessage(ctx context.Context, client *clientpkg.Client, i int, r io.ReadC
 }
 
 func permanodeRef(ctx context.Context, client *clientpkg.Client, key string) (blob.Ref, error) {
-	result, err := client.UploadPlannedPermanode(ctx, key, time.Now())
+	result, err := client.UploadPlannedPermanode(ctx, key, time.Unix(0, 0))
 	if err != nil {
 		return blob.Ref{}, err
 	}

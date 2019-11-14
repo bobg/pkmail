@@ -15,14 +15,19 @@ import (
 )
 
 var commands = map[string]func([]string){
-	"import": doImport,
-	"get":    doGet,
+	"import":       doImport,
+	"get":          doGet,
+	"list-folders": doListFolders,
 }
 
-var client *clientpkg.Client
+var (
+	client  *clientpkg.Client
+	verbose = flag.Bool("verbose", false, "verbose mode")
+)
 
 func main() {
 	clientpkg.AddFlags() // add -server flag
+
 	flag.Parse()
 
 	args := flag.Args()
