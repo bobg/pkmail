@@ -116,7 +116,7 @@ func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultConte
 		if err != nil {
 			return nil, errors.Wrap(err, "reading body bytes")
 		}
-		part.B = bodyBytes
+		part.B = string(bodyBytes)
 	}
 
 	return part, nil

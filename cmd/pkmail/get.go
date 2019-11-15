@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"os"
 
-	"github.com/davecgh/go-spew/spew"
 	"perkeep.org/pkg/blob"
 
 	"github.com/bobg/pkmail"
@@ -22,6 +21,9 @@ func doGet(args []string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Printf("%s", spew.Sdump(msg))
+		_, err = msg.WriteTo(os.Stdout)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
