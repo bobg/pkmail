@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"strings"
 
 	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
@@ -122,16 +121,20 @@ func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camT
 		s.Body = &bodyRef
 	}
 
-	jBytes, err := json.MarshalIndent(s, "", " ")
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", " ")
+	err := enc.Encode(s)
 	if err != nil {
 		return blob.Ref{}, err
 	}
 
 	// Canonical form, according to mapJSON() in
 	// perkeep.org/pkg/schema/schema.go.
-	jStr := "{\"camliVersion\": 1,\n" + string(jBytes[2:])
-	partRef := blob.RefFromString(jStr)
+	jStr := buf.String()
+	jStr = "{\"camliVersion\": 1,\n" + jStr[2:]
 
-	_, err = blobserver.ReceiveNoHash(ctx, dst, partRef, strings.NewReader(jStr))
-	return partRef, err
+	sref, err := blobserver.ReceiveString(ctx, dst, jStr)
+	return sref.Ref, err
 }

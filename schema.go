@@ -8,7 +8,7 @@ import (
 	"perkeep.org/pkg/blob"
 )
 
-// SchemaVersion is the schema version as a semver string.
+// SchemaVersion is the latest schema version as a semver string.
 const SchemaVersion = "1.0.1"
 
 type schemaBase struct {
