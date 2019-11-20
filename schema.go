@@ -5,7 +5,7 @@ import (
 )
 
 // SchemaVersion is the latest schema version as a semver string.
-const SchemaVersion = "2.0.0"
+const SchemaVersion = "2.1.0"
 
 // TODO: inverted index for text/* parts
 type rPart struct {
