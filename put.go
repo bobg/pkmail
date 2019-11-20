@@ -60,6 +60,7 @@ func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 	cd, cdParams := p.Disposition()
 	rp := &rPart{
 		PkmailVersion:            SchemaVersion,
+		CamliVersion:             1,
 		CamliType:                camliType,
 		ContentType:              p.Type(),
 		ContentDisposition:       cd,

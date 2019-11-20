@@ -13,6 +13,7 @@ type rPart struct {
 	// For the original (prototype) schema version, this string is empty.
 	PkmailVersion string `pk:"pkmail_version,inline"`
 
+	CamliVersion             int               `pk:"camliVersion,inline"`
 	CamliType                string            `pk:"camliType,inline"`
 	ContentType              string            `pk:"content_type,inline"`
 	ContentDisposition       string            `pk:"content_disposition,inline"`
