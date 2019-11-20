@@ -1,59 +1,55 @@
 package pkmail
 
 import (
-	"encoding/json"
 	"time"
-
-	"github.com/bobg/rmime"
-	"perkeep.org/pkg/blob"
 )
 
 // SchemaVersion is the latest schema version as a semver string.
-const SchemaVersion = "1.0.1"
+const SchemaVersion = "2.0.0"
 
-type schemaBase struct {
+// TODO: inverted index for text/* parts
+type rPart struct {
 	// PkmailVersion holds the value of pkmail.SchemaVersion at the time this blob was written.
 	// For the original (prototype) schema version, this string is empty.
-	PkmailVersion string `json:"pkmail_version"`
+	PkmailVersion string `pk:"pkmail_version,inline"`
 
-	CamliType                string            `json:"camliType"`
-	ContentType              string            `json:"content_type"`
-	ContentDisposition       string            `json:"content_disposition"`
-	Header                   []*rmime.Field    `json:"header,omitempty"`
-	ContentTypeParams        map[string]string `json:"content_type_params,omitempty"`
-	ContentDispositionParams map[string]string `json:"content_disposition_params,omitempty"`
-	Time                     *time.Time        `json:"time,omitempty"`
-	Charset                  string            `json:"charset,omitempty"`
-	Subject                  string            `json:"subject,omitempty"`
-	Sender                   *rmime.Address    `json:"sender,omitempty"`
-	Recipients               []*rmime.Address  `json:"recipients,omitempty"`
+	CamliType                string            `pk:"camliType,inline"`
+	ContentType              string            `pk:"content_type,inline"`
+	ContentDisposition       string            `pk:"content_disposition,inline"`
+	Header                   []*rField         `pk:"header,omitempty"`
+	ContentTypeParams        map[string]string `pk:"content_type_params,omitempty,inline"`
+	ContentDispositionParams map[string]string `pk:"content_disposition_params,omitempty,inline"`
+	Time                     *time.Time        `pk:"time,omitempty,inline"`
+	Charset                  string            `pk:"charset,omitempty,inline"`
+	Subject                  string            `pk:"subject,omitempty,inline"`
+	Sender                   *rAddress         `pk:"sender,omitempty"`
+	Recipients               []*rAddress       `pk:"recipients,omitempty"`
 
 	// Exactly one of the following is set.
-	Subparts          []blob.Ref            `json:"subparts,omitempty"`
-	SubMessage        *blob.Ref             `json:"submessage,omitempty"`
-	DeliveryStatusBug *rmime.DeliveryStatus `json:"delivery-status,omitempty"`
-	DeliveryStatus    *rmime.DeliveryStatus `json:"delivery_status,omitempty"`
-	Body              *blob.Ref             `json:"body,omitempty"`
+	Multipart         *rMultipart      `pk:"multipart,omitempty"`
+	SubMessage        *rPart           `pk:"submessage,omitempty"`
+	DeliveryStatusBug *rDeliveryStatus `pk:"delivery-status,omitempty"`
+	DeliveryStatus    *rDeliveryStatus `pk:"delivery_status,omitempty"`
+	Body              string           `pk:"body,omitempty"`
 }
 
-type schema schemaBase
+type rField struct {
+	N string   `pk:"name,inline"`
+	V []string `pk:"value,inline"`
+}
 
-// MarshalJSON ensures that the fields of s are marshaled in lexical order.
-func (s *schema) MarshalJSON() ([]byte, error) {
-	// Marshal once as the base type, getting fields in struct-definition order.
-	j, err := json.Marshal((*schemaBase)(s))
-	if err != nil {
-		return nil, err
-	}
+type rAddress struct {
+	Name    string `pk:"name,omitempty"`
+	Address string `pk:"address,omitempty"`
+}
 
-	// Unmarshal as a dictionary and remarshal to get automatic field sorting.
-	// Not the most efficient approach,
-	// but it's simple and does allow us to define the type above more clearly
-	// (i.e., segregating the body fields from the rest of the fields).
-	var m map[string]interface{}
-	err = json.Unmarshal(j, &m)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(m)
+type rDeliveryStatus struct {
+	Message    []*rField   `pk:"message,omitempty"`
+	Recipients [][]*rField `pk:"recipients,omitempty"`
+}
+
+type rMultipart struct {
+	Preamble  string   `pk:"preamble,omitempty"`
+	Postamble string   `pk:"postamble,omitempty"`
+	Parts     []*rPart `pk:"parts"`
 }

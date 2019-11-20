@@ -18,6 +18,8 @@ github.com/bobg/folder/v3 v3.0.3 h1:sWPuUhrJY0Yak23CSHD3f+TNSjGDYVnx/IPtKmNyvjc=
 github.com/bobg/folder/v3 v3.0.3/go.mod h1:ihhZ2pEBrjffDshxQwWHDSYAsw5jMrhtXdbXb1YnfRs=
 github.com/bobg/folder/v3 v3.0.4 h1:AGf1kw3d1BAsyan6liSER6OLBsOj2mwJK8BHWeqDoLk=
 github.com/bobg/folder/v3 v3.0.4/go.mod h1:NvNOeJSVxQ9jU9Xv482VRvytwcUMO+0QdmJPIiRHU7E=
+github.com/bobg/pk v0.0.0-20191119060408-5939af08f73f h1:xyMxlI5gQIJ1KiEHvQPoATS68IiYyZsGR01IkRkIAxQ=
+github.com/bobg/pk v0.0.0-20191119060408-5939af08f73f/go.mod h1:W7GSihh84FMaimaOQPqXVHERIipZwtmuXSk9NUs1l0w=
 github.com/bobg/rmime v1.0.1 h1:RZczbyMQnlFzxQIg7mAzkRisOMi6keXbsAtthTGXZ1c=
 github.com/bobg/rmime v1.0.1/go.mod h1:gioIoYnn/AbyBqoMApIp+QPwsjE9VaGeh3HgjHSG8Vo=
 github.com/bobg/rmime v1.0.2 h1:cup6fMMF6ugzdaTX8oMS9idlosZcwYKcsD1BxebR5G8=
@@ -291,6 +293,8 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 perkeep.org v0.0.0-20190606220315-249ea1f220b2 h1:MqGbuV81ZrlyIRDPmsEw7Qr5XvP3xkwDj/pz1U8ZfCI=
 perkeep.org v0.0.0-20190606220315-249ea1f220b2/go.mod h1:hEk0cXqikzLWZcymhEpuIc/9h8kcJPniw3uIDwXMr1Q=
+perkeep.org v0.0.0-20190926184543-d342b0e26632 h1:6ZKRr0VZtsfdHyYDJ/G9rCy7z8jGfrpmYANf0BR+vJM=
+perkeep.org v0.0.0-20190926184543-d342b0e26632/go.mod h1:p1748DQf7cjwn22GZKznI+GvIDlAPYIt7+uvn05qLeY=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/pdf v0.0.0-20170302045715-1d34785eb915/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 rsc.io/qr v0.1.0/go.mod h1:IF+uZjkb9fqyeF/4tlBoynqmQxUoPfWEKh921coOuXs=

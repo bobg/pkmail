@@ -2,122 +2,118 @@ package pkmail
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"io/ioutil"
-	"strings"
 
+	"github.com/bobg/pk"
 	"github.com/bobg/rmime"
 	"github.com/pkg/errors"
 	"perkeep.org/pkg/blob"
-	pkschema "perkeep.org/pkg/schema"
 )
 
 // PkGetMsg fetches the blobs from src, rooted at ref, to reconstruct an rmime.Message.
 func PkGetMsg(ctx context.Context, src blob.Fetcher, ref blob.Ref) (*rmime.Message, error) {
-	part, err := pkGetPart(ctx, src, ref, "text/plain", true)
+	var rp rPart
+	err := pk.Unmarshal(ctx, src, ref, &rp)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting message-root part")
+		return nil, err
 	}
-	return (*rmime.Message)(part), nil
+
+	p, err := fromRPart(&rp, "text/plain", true)
+	return (*rmime.Message)(p), err
 }
 
 // ErrMalformed is the error produced when a blob does not conform to the pkmail schema.
 var ErrMalformed = errors.New("malformed part")
 
-func pkGetPart(ctx context.Context, src blob.Fetcher, ref blob.Ref, defaultContentType string, expectMsg bool) (*rmime.Part, error) {
-	blobR, _, err := src.Fetch(ctx, ref)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetching message-part blob")
-	}
-	defer blobR.Close()
-
-	var s schema
-	err = json.NewDecoder(blobR).Decode(&s)
-	if err != nil {
-		return nil, errors.Wrap(err, "parsing message-root blob")
-	}
-
+func fromRPart(rp *rPart, defaultContentType string, expectMsg bool) (*rmime.Part, error) {
 	if expectMsg {
-		if s.CamliType != "mime-message" {
+		if rp.CamliType != "mime-message" {
 			return nil, ErrMalformed
 		}
 	} else {
-		switch s.CamliType {
+		switch rp.CamliType {
 		case "mime-message", "mime-part": // ok
 		default:
 			return nil, ErrMalformed
 		}
 	}
 
-	part := &rmime.Part{
-		Header: &rmime.Header{
-			Fields:      s.Header,
-			DefaultType: defaultContentType,
-		},
+	h := &rmime.Header{
+		DefaultType: defaultContentType,
+	}
+	for _, f := range rp.Header {
+		h.Fields = append(h.Fields, &rmime.Field{
+			N: f.N,
+			V: f.V,
+		})
 	}
 
-	ctParts := strings.Split(s.ContentType, "/")
-	if len(ctParts) != 2 {
-		return nil, ErrMalformed
+	p := &rmime.Part{
+		Header: h,
 	}
-	major, minor := ctParts[0], ctParts[1]
 
-	switch major {
+	switch h.MajorType() {
 	case "multipart":
-		if minor == "digest" {
+		if h.MinorType() == "digest" {
 			defaultContentType = "message/rfc822"
 		} else {
 			defaultContentType = "text/plain"
 		}
-
-		multi := new(rmime.Multipart)
-		for _, subpartRef := range s.Subparts {
-			part, err := pkGetPart(ctx, src, subpartRef, defaultContentType, false)
-			if err != nil {
-				return nil, errors.Wrap(err, "getting multipart subpart")
-			}
-			multi.Parts = append(multi.Parts, part)
+		rmulti := rp.Multipart
+		multi := &rmime.Multipart{
+			Preamble:  rmulti.Preamble,
+			Postamble: rmulti.Postamble,
 		}
-		part.B = multi
+		for _, rsubpart := range rmulti.Parts {
+			subpart, err := fromRPart(rsubpart, defaultContentType, false)
+			if err != nil {
+				return nil, err
+			}
+			multi.Parts = append(multi.Parts, subpart)
+		}
+		p.B = multi
 
 	case "message":
-		switch minor {
+		switch h.MinorType() {
 		case "rfc822", "news":
-			msg, err := pkGetPart(ctx, src, *s.SubMessage, "text/plain", false)
+			msg, err := fromRPart(rp.SubMessage, "text/plain", false)
 			if err != nil {
-				return nil, errors.Wrap(err, "getting nested message")
+				return nil, err
 			}
-			part.B = (*rmime.Message)(msg)
+			p.B = (*rmime.Message)(msg)
 
 		case "delivery-status":
-			if s.DeliveryStatusBug != nil {
-				part.B = s.DeliveryStatusBug
-			} else {
-				part.B = s.DeliveryStatus
+			rds := rp.DeliveryStatus
+			if rds == nil {
+				rds = rp.DeliveryStatusBug
 			}
+			ds := &rmime.DeliveryStatus{
+				Message: new(rmime.Header),
+			}
+			for _, f := range rds.Message {
+				ds.Message.Fields = append(ds.Message.Fields, &rmime.Field{
+					N: f.N,
+					V: f.V,
+				})
+			}
+			for _, rrecips := range rds.Recipients {
+				recips := new(rmime.Header)
+				for _, rrecip := range rrecips {
+					recips.Fields = append(recips.Fields, &rmime.Field{
+						N: rrecip.N,
+						V: rrecip.V,
+					})
+				}
+				ds.Recipients = append(ds.Recipients, recips)
+			}
+			p.B = ds
 
 		default:
 			return nil, rmime.ErrUnimplemented
 		}
 
 	default:
-		var bodyR io.ReadCloser
-		if s.PkmailVersion == "" {
-			bodyR, err = pkschema.NewFileReader(ctx, src, *s.Body)
-		} else {
-			bodyR, _, err = src.Fetch(ctx, *s.Body)
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "fetching body blob(s)")
-		}
-		defer bodyR.Close()
-		bodyBytes, err := ioutil.ReadAll(bodyR)
-		if err != nil {
-			return nil, errors.Wrap(err, "reading body bytes")
-		}
-		part.B = string(bodyBytes)
+		p.B = rp.Body
 	}
 
-	return part, nil
+	return p, nil
 }

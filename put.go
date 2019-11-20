@@ -2,11 +2,10 @@
 package pkmail
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
 
+	"github.com/bobg/pk"
 	"github.com/bobg/rmime"
 	"perkeep.org/pkg/blob"
 	"perkeep.org/pkg/blobserver"
@@ -16,8 +15,12 @@ import (
 // is added as a hierarchy of blobs with the root blob a schema blob
 // having camliType "mime-message". See PkPutPart for other details
 // of the root schema blob.
-func PkPutMsg(ctx context.Context, dst blobserver.StatReceiver, msg *rmime.Message) (blob.Ref, error) {
-	return pkPut(ctx, dst, (*rmime.Part)(msg), "mime-message")
+func PkPutMsg(ctx context.Context, dst blobserver.BlobReceiver, msg *rmime.Message) (blob.Ref, error) {
+	rp, err := toRPart((*rmime.Part)(msg), "mime-message")
+	if err != nil {
+		return blob.Ref{}, err
+	}
+	return pk.Marshal(ctx, dst, rp)
 }
 
 // PkPutPart adds a message part to the Perkeep server at dst.
@@ -45,96 +48,114 @@ func PkPutMsg(ctx context.Context, dst blobserver.StatReceiver, msg *rmime.Messa
 //   - for message/* parts, as the field "submessage",
 //     a nested "mime-message" schema blob
 //   - for other parts, as the field "body", a reference to a "bytes" schema blob.
-func PkPutPart(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part) (blob.Ref, error) {
-	return pkPut(ctx, dst, p, "mime-part")
+func PkPutPart(ctx context.Context, dst blobserver.BlobReceiver, p *rmime.Part) (blob.Ref, error) {
+	rp, err := toRPart(p, "mime-part")
+	if err != nil {
+		return blob.Ref{}, err
+	}
+	return pk.Marshal(ctx, dst, rp)
 }
 
-// TODO:
-//   - text/* parts get inverted index
-//   - text/html parts get parsed into DOMs (?)
-func pkPut(ctx context.Context, dst blobserver.StatReceiver, p *rmime.Part, camType string) (blob.Ref, error) {
+func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 	cd, cdParams := p.Disposition()
-	s := &schema{
+	rp := &rPart{
 		PkmailVersion:            SchemaVersion,
-		CamliType:                camType,
+		CamliType:                camliType,
 		ContentType:              p.Type(),
 		ContentDisposition:       cd,
-		Header:                   p.Fields,
 		ContentTypeParams:        p.Params(),
 		ContentDispositionParams: cdParams,
 		Subject:                  p.Subject(),
-		Sender:                   p.Sender(),
-		Recipients:               p.Recipients(),
 	}
 	if t := p.Time(); !t.IsZero() {
-		s.Time = &t
+		rp.Time = &t
 	}
 	if p.MajorType() == "text" {
-		s.Charset = p.Charset()
+		rp.Charset = p.Charset()
+	}
+
+	for _, f := range p.Header.Fields {
+		rp.Header = append(rp.Header, &rField{
+			N: f.N,
+			V: f.V,
+		})
+	}
+	if sender := p.Sender(); sender != nil {
+		rp.Sender = &rAddress{
+			Name:    sender.Name,
+			Address: sender.Address,
+		}
+	}
+	for _, recip := range p.Recipients() {
+		rp.Recipients = append(rp.Recipients, &rAddress{
+			Name:    recip.Name,
+			Address: recip.Address,
+		})
 	}
 
 	switch p.MajorType() {
 	case "multipart":
 		multi := p.B.(*rmime.Multipart)
-		var subpartRefs []blob.Ref
-		for _, subpart := range multi.Parts {
-			subpartRef, err := PkPutPart(ctx, dst, subpart)
-			if err != nil {
-				return blob.Ref{}, err
-			}
-			subpartRefs = append(subpartRefs, subpartRef)
+		rmulti := &rMultipart{
+			Preamble:  multi.Preamble,
+			Postamble: multi.Postamble,
 		}
-		s.Subparts = subpartRefs
-		// TODO: preamble and postamble?
+		for _, subpart := range multi.Parts {
+			subrp, err := toRPart(subpart, "mime-part") // xxx "mime-message" for message-type parts?
+			if err != nil {
+				return nil, err
+			}
+			rmulti.Parts = append(rmulti.Parts, subrp)
+		}
+		rp.Multipart = rmulti
 
 	case "message":
 		switch p.MinorType() {
 		case "rfc822", "news":
+			var err error
+
 			submsg := p.B.(*rmime.Message)
-			bodyRef, err := PkPutMsg(ctx, dst, submsg)
+			rp.SubMessage, err = toRPart((*rmime.Part)(submsg), "mime-message")
 			if err != nil {
-				return blob.Ref{}, err
+				return nil, err
 			}
-			s.SubMessage = &bodyRef
 
 		case "delivery-status":
-			s.DeliveryStatus = p.B.(*rmime.DeliveryStatus)
+			ds := p.B.(*rmime.DeliveryStatus)
+			rds := new(rDeliveryStatus)
+			for _, msg := range ds.Message.Fields {
+				rds.Message = append(rds.Message, &rField{
+					N: msg.N,
+					V: msg.V,
+				})
+			}
+			for _, recip := range ds.Recipients {
+				var rfields []*rField
+				for _, f := range recip.Fields {
+					rfields = append(rfields, &rField{
+						N: f.N,
+						V: f.V,
+					})
+				}
+				rds.Recipients = append(rds.Recipients, rfields)
+			}
+			rp.DeliveryStatus = rds
 
 		default:
-			return blob.Ref{}, rmime.ErrUnimplemented
+			return nil, rmime.ErrUnimplemented
 		}
 
 	default:
 		bodyR, err := p.Body()
 		if err != nil {
-			return blob.Ref{}, err
+			return nil, err
 		}
 		bodyBytes, err := ioutil.ReadAll(bodyR)
 		if err != nil {
-			return blob.Ref{}, err
+			return nil, err
 		}
-		bodyRef := blob.RefFromBytes(bodyBytes)
-		_, err = blobserver.ReceiveNoHash(ctx, dst, bodyRef, bytes.NewReader(bodyBytes))
-		if err != nil {
-			return blob.Ref{}, err
-		}
-		s.Body = &bodyRef
+		rp.Body = string(bodyBytes)
 	}
 
-	buf := new(bytes.Buffer)
-	enc := json.NewEncoder(buf)
-	enc.SetEscapeHTML(false)
-	enc.SetIndent("", " ")
-	err := enc.Encode(s)
-	if err != nil {
-		return blob.Ref{}, err
-	}
-
-	// Canonical form, according to mapJSON() in
-	// perkeep.org/pkg/schema/schema.go.
-	jStr := buf.String()
-	jStr = "{\"camliVersion\": 1,\n" + jStr[2:]
-
-	sref, err := blobserver.ReceiveString(ctx, dst, jStr)
-	return sref.Ref, err
+	return rp, nil
 }

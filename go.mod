@@ -5,6 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go v0.40.0 // indirect
 	github.com/bobg/folder/v3 v3.0.4
+	github.com/bobg/pk v0.0.0-20191119060408-5939af08f73f
 	github.com/bobg/rmime v1.1.0
 	github.com/bradfitz/latlong v0.0.0-20170410180902-f3db6d0dff40 // indirect
 	github.com/cznic/fileutil v0.0.0-20181122101858-4d67cfea8c87 // indirect
@@ -18,7 +19,6 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/lib/pq v1.1.1 // indirect
 	github.com/nf/cr2 v0.0.0-20180623103828-4699471a17ed // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/remyoudompheng/bigfft v0.0.0-20190512091148-babf20351dd7 // indirect
@@ -33,5 +33,5 @@ require (
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
-	perkeep.org v0.0.0-20190606220315-249ea1f220b2
+	perkeep.org v0.0.0-20190926184543-d342b0e26632
 )
