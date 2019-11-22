@@ -5,7 +5,7 @@ import (
 )
 
 // SchemaVersion is the latest schema version as a semver string.
-const SchemaVersion = "2.1.0"
+const SchemaVersion = "2.2.0"
 
 // TODO: inverted index for text/* parts
 type rPart struct {
@@ -25,6 +25,9 @@ type rPart struct {
 	Subject                  string            `pk:"subject,omitempty,inline"`
 	Sender                   *rAddress         `pk:"sender,omitempty"`
 	Recipients               []*rAddress       `pk:"recipients,omitempty"`
+	MessageID                string            `pk:"message_id,omitempty"`
+	InReplyTo                []string          `pk:"in_reply_to,omitempty"`
+	References               []string          `pk:"references,omitempty"`
 
 	// Exactly one of the following is set.
 	Multipart         *rMultipart      `pk:"multipart,omitempty"`

@@ -67,6 +67,9 @@ func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 		ContentTypeParams:        p.Params(),
 		ContentDispositionParams: cdParams,
 		Subject:                  p.Subject(),
+		MessageID:                p.MessageID(),
+		InReplyTo:                p.InReplyTo(),
+		References:               p.References(),
 	}
 	if t := p.Time(); !t.IsZero() {
 		rp.Time = &t
