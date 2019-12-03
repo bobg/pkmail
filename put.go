@@ -64,6 +64,7 @@ func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 		CamliType:                camliType,
 		ContentType:              p.Type(),
 		ContentDisposition:       cd,
+		Header:                   p.Header,
 		ContentTypeParams:        p.Params(),
 		ContentDispositionParams: cdParams,
 		Subject:                  p.Subject(),
@@ -78,12 +79,6 @@ func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 		rp.Charset = p.Charset()
 	}
 
-	for _, f := range p.Header.Fields {
-		rp.Header = append(rp.Header, &rField{
-			N: f.N,
-			V: f.V,
-		})
-	}
 	if sender := p.Sender(); sender != nil {
 		rp.Sender = &rAddress{
 			Name:    sender.Name,
@@ -125,25 +120,7 @@ func toRPart(p *rmime.Part, camliType string) (*rPart, error) {
 			}
 
 		case "delivery-status":
-			ds := p.B.(*rmime.DeliveryStatus)
-			rds := new(rDeliveryStatus)
-			for _, msg := range ds.Message.Fields {
-				rds.Message = append(rds.Message, &rField{
-					N: msg.N,
-					V: msg.V,
-				})
-			}
-			for _, recip := range ds.Recipients {
-				var rfields []*rField
-				for _, f := range recip.Fields {
-					rfields = append(rfields, &rField{
-						N: f.N,
-						V: f.V,
-					})
-				}
-				rds.Recipients = append(rds.Recipients, rfields)
-			}
-			rp.DeliveryStatus = rds
+			rp.DeliveryStatus = p.B.(*rmime.DeliveryStatus)
 
 		default:
 			return nil, rmime.ErrUnimplemented

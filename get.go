@@ -37,16 +37,7 @@ func fromRPart(rp *rPart, defaultContentType string, expectMsg bool) (*rmime.Par
 		}
 	}
 
-	h := &rmime.Header{
-		DefaultType: defaultContentType,
-	}
-	for _, f := range rp.Header {
-		h.Fields = append(h.Fields, &rmime.Field{
-			N: f.N,
-			V: f.V,
-		})
-	}
-
+	h := rp.Header
 	p := &rmime.Part{
 		Header: h,
 	}
@@ -82,30 +73,7 @@ func fromRPart(rp *rPart, defaultContentType string, expectMsg bool) (*rmime.Par
 			p.B = (*rmime.Message)(msg)
 
 		case "delivery-status":
-			rds := rp.DeliveryStatus
-			if rds == nil {
-				rds = rp.DeliveryStatusBug
-			}
-			ds := &rmime.DeliveryStatus{
-				Message: new(rmime.Header),
-			}
-			for _, f := range rds.Message {
-				ds.Message.Fields = append(ds.Message.Fields, &rmime.Field{
-					N: f.N,
-					V: f.V,
-				})
-			}
-			for _, rrecips := range rds.Recipients {
-				recips := new(rmime.Header)
-				for _, rrecip := range rrecips {
-					recips.Fields = append(recips.Fields, &rmime.Field{
-						N: rrecip.N,
-						V: rrecip.V,
-					})
-				}
-				ds.Recipients = append(ds.Recipients, recips)
-			}
-			p.B = ds
+			p.B = rp.DeliveryStatus
 
 		default:
 			return nil, rmime.ErrUnimplemented

@@ -13,6 +13,7 @@ import (
 	"perkeep.org/pkg/blob"
 	clientpkg "perkeep.org/pkg/client"
 	"perkeep.org/pkg/schema"
+	"perkeep.org/pkg/schema/nodeattr"
 
 	"github.com/bobg/pkmail"
 )
@@ -101,6 +102,14 @@ func permanodeRef(ctx context.Context, client *clientpkg.Client, key string) (bl
 	result, err := client.UploadPlannedPermanode(ctx, key, time.Unix(0, 0))
 	if err != nil {
 		return blob.Ref{}, err
+	}
+	if !result.Skipped {
+		// New permanode.
+		builder := schema.NewSetAttributeClaim(result.BlobRef, nodeattr.Title, key)
+		_, err = signAndUpload(ctx, client, builder)
+		if err != nil {
+			return blob.Ref{}, errors.Wrapf(err, "setting title for permanode %s", key)
+		}
 	}
 	return result.BlobRef, nil
 }

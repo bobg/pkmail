@@ -2,12 +2,16 @@ package pkmail
 
 import (
 	"time"
+
+	"github.com/bobg/rmime"
 )
 
 // SchemaVersion is the latest schema version as a semver string.
-const SchemaVersion = "2.2.0"
+const SchemaVersion = "3.0.0"
 
+// TODO: compatibility with http://schema.org/EmailMessage
 // TODO: inverted index for text/* parts
+
 type rPart struct {
 	// PkmailVersion holds the value of pkmail.SchemaVersion at the time this blob was written.
 	// For the original (prototype) schema version, this string is empty.
@@ -17,7 +21,7 @@ type rPart struct {
 	CamliType                string            `pk:"camliType,inline"`
 	ContentType              string            `pk:"content_type,inline"`
 	ContentDisposition       string            `pk:"content_disposition,inline"`
-	Header                   []*rField         `pk:"header,omitempty"`
+	Header                   *rmime.Header     `pk:"header,inline,omitempty"`
 	ContentTypeParams        map[string]string `pk:"content_type_params,omitempty,inline"`
 	ContentDispositionParams map[string]string `pk:"content_disposition_params,omitempty,inline"`
 	Time                     *time.Time        `pk:"time,omitempty,inline"`
@@ -30,16 +34,11 @@ type rPart struct {
 	References               []string          `pk:"references,omitempty"`
 
 	// Exactly one of the following is set.
-	Multipart         *rMultipart      `pk:"multipart,omitempty"`
-	SubMessage        *rPart           `pk:"submessage,omitempty"`
-	DeliveryStatusBug *rDeliveryStatus `pk:"delivery-status,omitempty"`
-	DeliveryStatus    *rDeliveryStatus `pk:"delivery_status,omitempty"`
-	Body              string           `pk:"body,omitempty"`
-}
-
-type rField struct {
-	N string   `pk:"name,inline"`
-	V []string `pk:"value,inline"`
+	Multipart         *rMultipart           `pk:"multipart,omitempty"`
+	SubMessage        *rPart                `pk:"submessage,omitempty"`
+	DeliveryStatusBug *rmime.DeliveryStatus `pk:"delivery-status,omitempty"`
+	DeliveryStatus    *rmime.DeliveryStatus `pk:"delivery_status,omitempty"`
+	Body              string                `pk:"body,omitempty"`
 }
 
 type rAddress struct {
@@ -47,13 +46,8 @@ type rAddress struct {
 	Address string `pk:"address,omitempty"`
 }
 
-type rDeliveryStatus struct {
-	Message    []*rField   `pk:"message,omitempty"`
-	Recipients [][]*rField `pk:"recipients,omitempty"`
-}
-
 type rMultipart struct {
-	Preamble  string   `pk:"preamble,omitempty"`
-	Postamble string   `pk:"postamble,omitempty"`
-	Parts     []*rPart `pk:"parts"`
+	Preamble  string   `pk:"preamble,inline,omitempty"`
+	Postamble string   `pk:"postamble,inline,omitempty"`
+	Parts     []*rPart `pk:"parts,inline"`
 }
